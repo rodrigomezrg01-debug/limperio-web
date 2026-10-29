@@ -199,8 +199,8 @@
 <div class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 max-w-md bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3" id="toast">
 <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-xl font-bold">✓</div>
 <div>
-<p class="font-bold text-sm text-white">¡Casi listo! Abriendo WhatsApp</p>
-<p class="text-xs text-slate-300">Tocá "Enviar" en WhatsApp para mandarnos tu solicitud.</p>
+<p class="font-bold text-sm text-white" id="toast-title">¡Solicitud enviada!</p>
+<p class="text-xs text-slate-300" id="toast-text">Te contactaremos a la brevedad.</p>
 </div>
 </div>
 <!-- BEGIN: StickyNavBar -->
@@ -784,48 +784,60 @@
     }, { passive: true });
   });
 
-  // Handle contact form submit
-  function handleFormSubmit(e) {
+  // Handle contact form submit (envío por email vía Web3Forms)
+  async function handleFormSubmit(e) {
     e.preventDefault();
-    const WHATSAPP_NUMBER = '5493412168379';
-
-    const name = document.getElementById('form-name').value.trim();
-    const type = document.getElementById('form-type').value;
-    const details = document.getElementById('form-details').value.trim();
-
-    const lines = [
-      'Hola Limperio, mi nombre es ' + name + '. Quisiera solicitar un presupuesto.',
-      '',
-      '*Tipo de inmueble o servicio:* ' + type
-    ];
-    if (details) lines.push('*Detalles:* ' + details);
-
-    const url = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(lines.join('\n'));
-
-    // Se abre dentro del evento de envío para que el navegador no lo bloquee
-    const win = window.open(url, '_blank');
-    if (!win) window.location.href = url;
-
-    const btn = e.target.querySelector('button[type="submit"]');
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
     const originalContent = btn.innerHTML;
-    btn.innerHTML = '<span>✓ Abriendo WhatsApp...</span>';
+
+    btn.innerHTML = '<span>Enviando...</span>';
     btn.disabled = true;
 
-    const toast = document.getElementById('toast');
-    if (toast) {
-      toast.classList.remove('translate-y-20', 'opacity-0');
-      toast.classList.add('translate-y-0', 'opacity-100');
-      setTimeout(() => {
-        toast.classList.remove('translate-y-0', 'opacity-100');
-        toast.classList.add('translate-y-20', 'opacity-0');
-      }, 5000);
-    }
+    const payload = {
+      access_key: 'c31c158d-95c7-4fc5-84bf-a2bb43f00621',
+      subject: 'Nueva solicitud de presupuesto - limperio.com.ar',
+      from_name: 'Web Limperio',
+      name: document.getElementById('form-name').value.trim(),
+      phone: document.getElementById('form-phone').value.trim(),
+      email: document.getElementById('form-email').value.trim(),
+      tipo_de_inmueble: document.getElementById('form-type').value,
+      detalles: document.getElementById('form-details').value.trim()
+    };
 
-    setTimeout(() => {
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast('¡Solicitud enviada!', 'Recibimos tus datos y te contactaremos a la brevedad.');
+        form.reset();
+      } else {
+        throw new Error(data.message || 'Error al enviar');
+      }
+    } catch (err) {
+      showToast('No pudimos enviar el formulario', 'Probá de nuevo o escribinos por WhatsApp.');
+    } finally {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      e.target.reset();
-    }, 3000);
+    }
+  }
+
+  function showToast(title, text) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    document.getElementById('toast-title').textContent = title;
+    document.getElementById('toast-text').textContent = text;
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-20', 'opacity-0');
+    }, 5000);
   }
 </script>
 <!-- END: Micro-Interactions Script -->
